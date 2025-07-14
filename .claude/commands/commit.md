@@ -1,0 +1,1 @@
+Crea un commit a partir de los cambios, añadiendo todos los cambios nuevos que no estén dentro del mismo, y añade un mensaje de commit que explique esos cambios. No te añadas como coautor del commit

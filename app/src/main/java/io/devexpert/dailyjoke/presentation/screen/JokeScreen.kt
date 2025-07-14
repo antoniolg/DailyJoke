@@ -8,17 +8,30 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -46,6 +59,7 @@ fun JokeScreen(
     JokeScreen(
         uiState = viewModel.uiState.collectAsState().value,
         onNewJokeClick = { viewModel.loadRandomJoke() },
+        onSaveFavoriteClick = { viewModel.saveFavoriteJoke() },
         modifier = modifier
     )
 }
@@ -54,8 +68,11 @@ fun JokeScreen(
 fun JokeScreen(
     uiState: JokeUiState,
     onNewJokeClick: () -> Unit,
+    onSaveFavoriteClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showFavorites by remember { mutableStateOf(false) }
+    
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -68,10 +85,20 @@ fun JokeScreen(
                 LoadingComponent()
             }
             is JokeUiState.Success -> {
-                JokeContent(
-                    joke = uiState.joke,
-                    onNewJokeClick = onNewJokeClick
-                )
+                if (showFavorites) {
+                    FavoritesContent(
+                        favorites = uiState.favorites,
+                        onBackClick = { showFavorites = false }
+                    )
+                } else {
+                    JokeContent(
+                        joke = uiState.joke,
+                        favorites = uiState.favorites,
+                        onNewJokeClick = onNewJokeClick,
+                        onSaveFavoriteClick = onSaveFavoriteClick,
+                        onShowFavoritesClick = { showFavorites = true }
+                    )
+                }
             }
             is JokeUiState.Error -> {
                 ErrorComponent(
@@ -106,9 +133,14 @@ private fun LoadingComponent(
 @Composable
 private fun JokeContent(
     joke: Joke,
+    favorites: List<Joke>,
     onNewJokeClick: () -> Unit,
+    onSaveFavoriteClick: () -> Unit,
+    onShowFavoritesClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isFavorite = favorites.contains(joke)
+    
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
@@ -120,12 +152,31 @@ private fun JokeContent(
             Column(
                 modifier = Modifier.padding(20.dp)
             ) {
-                Text(
-                    text = joke.category.uppercase(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = joke.category.uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                    
+                    if (favorites.isNotEmpty()) {
+                        OutlinedButton(
+                            onClick = onShowFavoritesClick,
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text(
+                                text = "❤️ ${favorites.size}",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 
@@ -149,16 +200,142 @@ private fun JokeContent(
         
         Spacer(modifier = Modifier.height(24.dp))
         
-        Button(
-            onClick = onNewJokeClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            FilledTonalButton(
+                onClick = onSaveFavoriteClick,
+                modifier = Modifier.weight(1f),
+                enabled = !isFavorite
+            ) {
+                Icon(
+                    imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    contentDescription = if (isFavorite) "Already favorited" else "Add to favorites"
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (isFavorite) "Favorited" else "Add to Favorites",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            
+            Button(
+                onClick = onNewJokeClick,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = "New Joke",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FavoritesContent(
+    favorites: List<Joke>,
+    onBackClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBackClick) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back"
+                )
+            }
+            
+            Text(
+                text = "Favorite Jokes (${favorites.size})",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        if (favorites.isEmpty()) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "💔",
+                    style = MaterialTheme.typography.displayMedium
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "No favorite jokes yet",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Save some jokes to see them here!",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+        } else {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(favorites) { joke ->
+                    FavoriteJokeCard(joke = joke)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FavoriteJokeCard(
+    joke: Joke,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
         ) {
             Text(
-                text = "Get New Joke",
+                text = joke.category.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Text(
+                text = joke.setup,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Text(
+                text = joke.punchline,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -226,7 +403,30 @@ private fun JokeScreenSuccessPreview() {
                     category = "Science"
                 )
             ),
-            onNewJokeClick = {}
+            onNewJokeClick = {},
+            onSaveFavoriteClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun JokeScreenWithFavoritesPreview() {
+    DailyJokeTheme {
+        JokeScreen(
+            uiState = JokeUiState.Success(
+                joke = Joke(
+                    setup = "Why don't scientists trust atoms?",
+                    punchline = "Because they make up everything!",
+                    category = "Science"
+                ),
+                favorites = listOf(
+                    Joke("Setup 1", "Punchline 1", "Category 1"),
+                    Joke("Setup 2", "Punchline 2", "Category 2")
+                )
+            ),
+            onNewJokeClick = {},
+            onSaveFavoriteClick = {}
         )
     }
 }
@@ -237,7 +437,8 @@ private fun JokeScreenLoadingPreview() {
     DailyJokeTheme {
         JokeScreen(
             uiState = JokeUiState.Loading,
-            onNewJokeClick = {}
+            onNewJokeClick = {},
+            onSaveFavoriteClick = {}
         )
     }
 }
@@ -248,7 +449,34 @@ private fun JokeScreenErrorPreview() {
     DailyJokeTheme {
         JokeScreen(
             uiState = JokeUiState.Error("Network connection failed. Please check your internet connection."),
-            onNewJokeClick = {}
+            onNewJokeClick = {},
+            onSaveFavoriteClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun FavoritesContentPreview() {
+    DailyJokeTheme {
+        FavoritesContent(
+            favorites = listOf(
+                Joke("Why don't scientists trust atoms?", "Because they make up everything!", "Science"),
+                Joke("Why did the coffee file a police report?", "It got mugged!", "Pun"),
+                Joke("What do you call a fake noodle?", "An Impasta!", "Food")
+            ),
+            onBackClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun FavoritesContentEmptyPreview() {
+    DailyJokeTheme {
+        FavoritesContent(
+            favorites = emptyList(),
+            onBackClick = {}
         )
     }
 }
@@ -263,7 +491,31 @@ private fun JokeContentPreview() {
                 punchline = "Because they make up everything!",
                 category = "Science"
             ),
-            onNewJokeClick = {}
+            favorites = emptyList(),
+            onNewJokeClick = {},
+            onSaveFavoriteClick = {},
+            onShowFavoritesClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun JokeContentWithFavoritesPreview() {
+    DailyJokeTheme {
+        JokeContent(
+            joke = Joke(
+                setup = "Why don't scientists trust atoms?",
+                punchline = "Because they make up everything!",
+                category = "Science"
+            ),
+            favorites = listOf(
+                Joke("Setup 1", "Punchline 1", "Category 1"),
+                Joke("Setup 2", "Punchline 2", "Category 2")
+            ),
+            onNewJokeClick = {},
+            onSaveFavoriteClick = {},
+            onShowFavoritesClick = {}
         )
     }
 }
