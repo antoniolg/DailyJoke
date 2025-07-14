@@ -506,7 +506,7 @@ private fun JokeContentWithFavoritesPreview() {
         JokeContent(
             joke = Joke(
                 setup = "Why don't scientists trust atoms?",
-                punchline = "Because they make up everything!!!",
+                punchline = "Because they make up everything!",
                 category = "Science"
             ),
             favorites = listOf(
