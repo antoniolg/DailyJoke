@@ -25,18 +25,37 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import io.devexpert.dailyjoke.data.api.NetworkModule
+import io.devexpert.dailyjoke.data.repository.JokeRepositoryImpl
 import io.devexpert.dailyjoke.domain.model.Joke
 import io.devexpert.dailyjoke.presentation.viewmodel.JokeUiState
 import io.devexpert.dailyjoke.presentation.viewmodel.JokeViewModel
+import io.devexpert.dailyjoke.presentation.viewmodel.JokeViewModelFactory
 import io.devexpert.dailyjoke.ui.theme.DailyJokeTheme
 
 @Composable
 fun JokeScreen(
-    viewModel: JokeViewModel,
     modifier: Modifier = Modifier
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val repository = JokeRepositoryImpl(NetworkModule.jokeApiService)
+    val viewModel: JokeViewModel = viewModel {
+        JokeViewModelFactory(repository).create(JokeViewModel::class.java)
+    }
     
+    JokeScreen(
+        uiState = viewModel.uiState.collectAsState().value,
+        onNewJokeClick = { viewModel.loadRandomJoke() },
+        modifier = modifier
+    )
+}
+
+@Composable
+fun JokeScreen(
+    uiState: JokeUiState,
+    onNewJokeClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -44,20 +63,20 @@ fun JokeScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        when (val currentState = uiState) {
+        when (uiState) {
             is JokeUiState.Loading -> {
                 LoadingComponent()
             }
             is JokeUiState.Success -> {
                 JokeContent(
-                    joke = currentState.joke,
-                    onNewJokeClick = { viewModel.loadRandomJoke() }
+                    joke = uiState.joke,
+                    onNewJokeClick = onNewJokeClick
                 )
             }
             is JokeUiState.Error -> {
                 ErrorComponent(
-                    message = currentState.message,
-                    onRetryClick = { viewModel.loadRandomJoke() }
+                    message = uiState.message,
+                    onRetryClick = onNewJokeClick
                 )
             }
         }
@@ -192,6 +211,45 @@ private fun ErrorComponent(
                 fontWeight = FontWeight.Medium
             )
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun JokeScreenSuccessPreview() {
+    DailyJokeTheme {
+        JokeScreen(
+            uiState = JokeUiState.Success(
+                joke = Joke(
+                    setup = "Why don't scientists trust atoms?",
+                    punchline = "Because they make up everything!",
+                    category = "Science"
+                )
+            ),
+            onNewJokeClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun JokeScreenLoadingPreview() {
+    DailyJokeTheme {
+        JokeScreen(
+            uiState = JokeUiState.Loading,
+            onNewJokeClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun JokeScreenErrorPreview() {
+    DailyJokeTheme {
+        JokeScreen(
+            uiState = JokeUiState.Error("Network connection failed. Please check your internet connection."),
+            onNewJokeClick = {}
+        )
     }
 }
 
